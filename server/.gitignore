@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+drizzle/
+__pycache__/
+*.pyc
+.venv/

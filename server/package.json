@@ -1,0 +1,47 @@
+{
+  "name": "abhyaslm-server",
+  "version": "0.1.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n app,inngest -c blue,magenta --kill-others-on-fail \"npm:dev:app\" \"npm:inngest:dev\"",
+    "dev:app": "tsc-watch --onSuccess \"node ./dist/src/index.js\"",
+    "build": "tsc --noCheck --declaration false --declarationMap false --sourceMap false",
+    "typecheck": "tsc --noEmit",
+    "start": "node ./dist/src/index.js",
+    "studio": "drizzle-kit studio",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "inngest:dev": "npx inngest-cli@latest dev -u http://localhost:8000/api/inngest"
+  },
+  "author": "",
+  "license": "MIT",
+  "description": "Standalone, bring-your-own-key extraction of Abhyas's AI pipelines: PYQ question-bank retrieval, vector-less book RAG, multi-agent exam generation, and rubric-based grading.",
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.9.1",
+    "@types/pg": "^8.20.0",
+    "concurrently": "^10.0.5",
+    "drizzle-kit": "^0.31.10",
+    "tsc-watch": "^7.2.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0",
+    "@qdrant/js-client-rest": "^1.19.0",
+    "cloudinary": "^2.10.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "express": "^5.2.1",
+    "inngest": "^4.18.1",
+    "multer": "^2.1.1",
+    "openai": "^6.44.0",
+    "p-limit": "^7.3.0",
+    "pg": "^8.21.0",
+    "zod": "^4.4.3"
+  }
+}
