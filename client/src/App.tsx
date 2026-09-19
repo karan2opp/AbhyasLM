@@ -24,7 +24,6 @@ const Users = lazy(() => import("@/pages/Users"))
 const Settings = lazy(() => import("@/pages/Settings"))
 const Attempt = lazy(() => import("@/pages/Attempt"))
 const Result = lazy(() => import("@/pages/Result"))
-const PublishedExams = lazy(() => import("@/pages/PublishedExams"))
 const PublishedExamDetail = lazy(() => import("@/pages/PublishedExamDetail"))
 const EditExam = lazy(() => import("@/pages/EditExam"))
 const AccountSettings = lazy(() => import("@/pages/AccountSettings"))
@@ -93,7 +92,6 @@ function SignedInApp() {
             <Route path="/question-bank" element={<RoleRoute allow={examiners}><QuestionBank /></RoleRoute>} />
             <Route path="/books" element={<RoleRoute allow={examiners}><Books /></RoleRoute>} />
             <Route path="/books/:bookId" element={<RoleRoute allow={examiners}><BookDetail /></RoleRoute>} />
-            <Route path="/published" element={<RoleRoute allow={examiners}><PublishedExams /></RoleRoute>} />
             <Route path="/published/:examId" element={<RoleRoute allow={examiners}><PublishedExamDetail /></RoleRoute>} />
             <Route path="/published/:examId/edit" element={<RoleRoute allow={examiners}><EditExam /></RoleRoute>} />
             <Route path="/attempt/:submissionId" element={<RoleRoute allow={["candidate", "admin"]}><Attempt /></RoleRoute>} />

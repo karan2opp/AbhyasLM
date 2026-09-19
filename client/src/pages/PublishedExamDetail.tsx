@@ -3,7 +3,7 @@ import { ArrowLeft, CalendarClock, Eye, EyeOff, Loader2, Pencil, Send } from "lu
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { JoinCode } from "@/pages/PublishedExams"
+import { JoinCode } from "@/components/JoinCode"
 import { LoadingRow, StatTile } from "@/components/workspace"
 import { useApi } from "@/lib/api"
 import { useAction, useResource } from "@/lib/hooks"
@@ -50,8 +50,8 @@ export default function PublishedExamDetail() {
     return (
       <div className="p-10 text-center space-y-3">
         <p className="text-red-400">{exams.error ?? "Exam not found"}</p>
-        <Link to="/published" className="text-orange-400 hover:text-orange-300 text-sm font-semibold">
-          Back to published exams
+        <Link to="/exams" className="text-orange-400 hover:text-orange-300 text-sm font-semibold">
+          Back to exams
         </Link>
       </div>
     )
@@ -66,7 +66,7 @@ export default function PublishedExamDetail() {
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <Link to="/published" className="text-gray-400 hover:text-white" aria-label="Back to published exams">
+            <Link to="/exams" className="text-gray-400 hover:text-white" aria-label="Back to exams">
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div className="min-w-0">

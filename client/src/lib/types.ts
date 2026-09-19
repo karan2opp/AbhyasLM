@@ -102,6 +102,7 @@ export interface SessionSummary {
   title: string | null
   sectionCount: number
   bookId: string | null
+  /** The generation workflow's own status — not whether it's been published. */
   status: 'in_progress' | 'completed'
   blueprintStatus: StageStatus
   questionsStatus: StageStatus
@@ -109,6 +110,18 @@ export interface SessionSummary {
   /** Set when an admin is looking at another examiner's session. */
   ownerEmail: string | null
   createdAt: string
+  /** Set once this session has been published into an exam. */
+  examId: string | null
+  /** "draft" covers both "published as a draft" and "never published yet". */
+  publishStatus: ExamStatus
+  joinCode: string | null
+  durationMinutes: number | null
+  totalMarks: number | null
+  opensAt: string | null
+  closesAt: string | null
+  resultsVisible: boolean | null
+  examQuestionCount: number | null
+  submissionCount: number | null
 }
 
 /** GET /api/generation-agents/sessions — search and pagination both run server-side. */

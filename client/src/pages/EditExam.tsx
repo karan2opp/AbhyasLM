@@ -52,8 +52,8 @@ export default function EditExam() {
     return (
       <div className="p-10 text-center space-y-3">
         <p className="text-red-400">{detail.error ?? "Exam not found"}</p>
-        <Link to="/published" className="text-orange-400 hover:text-orange-300 text-sm font-semibold">
-          Back to published exams
+        <Link to="/exams" className="text-orange-400 hover:text-orange-300 text-sm font-semibold">
+          Back to exams
         </Link>
       </div>
     )

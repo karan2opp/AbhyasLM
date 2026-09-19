@@ -46,7 +46,7 @@ export default function ChooseRole() {
     <main className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
       <div className="w-full max-w-3xl space-y-8">
         <header className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-white tracking-tight">How will you use AbhyasLM?</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">How will you use Abhyas?</h1>
           <p className="text-gray-400">Pick one to set up your account. You can switch anytime from the sidebar.</p>
         </header>
 

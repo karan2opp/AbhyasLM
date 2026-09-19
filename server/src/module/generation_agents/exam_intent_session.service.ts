@@ -2,6 +2,7 @@ import { and, eq, asc, desc, sql } from "drizzle-orm";
 import db from "../../common/db/index.js";
 import { users } from "../users/user.schema.js";
 import { examIntentSessions, examIntentMessages, blueprintReviewMessages, questionReviewMessages } from "./exam_intent_session.schema.js";
+import { exams, examQuestions, submissions, type ExamStatus } from "../exams/exam.schema.js";
 import type { IInputExam } from "./Types/inputExam.js";
 import type { ConversationSummary, ConversationTurn } from "./Types/outputConversation.js";
 import type { ExamBlueprint } from "./Types/outputSubtopics.js";
@@ -16,56 +17,87 @@ export const createSession = async (examInput: IInputExam, createdBy: string) =>
 };
 
 /**
- * The caller's sessions, newest first — or, for an admin, everyone's — just
- * enough to list them, without the large JSON columns. The owner's email is
- * only meaningful (and only shown by the client) when an admin is looking at
- * someone else's session. Search matches the title stored inside the
- * examInput JSON column (there's no separate title column); pagination and
- * the total count both run server-side so the client never has to fetch
- * every session to filter or page through them.
+ * The caller's sessions, newest first — or, for an admin, everyone's — left
+ * joined with the published exam (if any) that came from it, so one list
+ * covers both "still being generated" and "published/draft/closed" without
+ * the client juggling two endpoints. A session with no linked exam row is
+ * treated as an unpublished draft (`publishStatus: "draft"`) — from an
+ * examiner's point of view, "still generating" and "generated but never
+ * published" both just mean "not live yet".
+ *
+ * Search matches whichever title is showing (the exam's own title once
+ * published, else the session's examInput title — there's no separate
+ * indexed title column for either). Pagination and the total count both run
+ * server-side so the client never has to fetch everything to filter or page.
  */
 export const listSessions = async (
     requester: { id: string; role: string | null },
-    options: { search?: string | undefined; page?: number | undefined; pageSize?: number | undefined } = {}
+    options: {
+        search?: string | undefined;
+        page?: number | undefined;
+        pageSize?: number | undefined;
+        status?: "all" | ExamStatus | undefined;
+    } = {}
 ) => {
     const page = Math.max(1, options.page ?? 1);
     const pageSize = Math.min(60, Math.max(1, options.pageSize ?? 12));
     const search = options.search?.trim();
+    const statusFilter = options.status ?? "all";
 
     const conditions = [
         requester.role === "admin" ? undefined : eq(examIntentSessions.createdBy, requester.id),
-        search ? sql`${examIntentSessions.examInput}->>'title' ilike ${`%${search}%`}` : undefined,
+        search ? sql`coalesce(${exams.title}, ${examIntentSessions.examInput}->>'title') ilike ${`%${search}%`}` : undefined,
+        statusFilter === "all" ? undefined : statusFilter === "draft" ? sql`coalesce(${exams.status}, 'draft') = 'draft'` : eq(exams.status, statusFilter),
     ].filter((c): c is NonNullable<typeof c> => c !== undefined);
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+    const selection = {
+        id: examIntentSessions.id,
+        examInput: examIntentSessions.examInput,
+        status: examIntentSessions.status,
+        blueprintStatus: examIntentSessions.blueprintStatus,
+        questionsStatus: examIntentSessions.questionsStatus,
+        createdBy: examIntentSessions.createdBy,
+        ownerEmail: users.email,
+        createdAt: examIntentSessions.createdAt,
+        updatedAt: examIntentSessions.updatedAt,
+        examId: exams.id,
+        examTitle: exams.title,
+        publishStatus: exams.status,
+        joinCode: exams.joinCode,
+        durationMinutes: exams.durationMinutes,
+        totalMarks: exams.totalMarks,
+        opensAt: exams.opensAt,
+        closesAt: exams.closesAt,
+        resultsVisible: exams.resultsVisible,
+        examQuestionCount: sql<number | null>`(select count(*)::int from ${examQuestions} where ${examQuestions.examId} = ${exams.id})`,
+        submissionCount: sql<number | null>`(select count(*)::int from ${submissions} where ${submissions.examId} = ${exams.id})`,
+    };
+
     const [rows, countRows] = await Promise.all([
         db
-            .select({
-                id: examIntentSessions.id,
-                examInput: examIntentSessions.examInput,
-                status: examIntentSessions.status,
-                blueprintStatus: examIntentSessions.blueprintStatus,
-                questionsStatus: examIntentSessions.questionsStatus,
-                createdBy: examIntentSessions.createdBy,
-                ownerEmail: users.email,
-                createdAt: examIntentSessions.createdAt,
-                updatedAt: examIntentSessions.updatedAt,
-            })
+            .select(selection)
             .from(examIntentSessions)
             .leftJoin(users, eq(examIntentSessions.createdBy, users.id))
+            .leftJoin(exams, eq(exams.sessionId, examIntentSessions.id))
             .where(where)
             .orderBy(desc(examIntentSessions.createdAt))
             .limit(pageSize)
             .offset((page - 1) * pageSize),
-        db.select({ count: sql<number>`count(*)::int` }).from(examIntentSessions).where(where),
+        db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(examIntentSessions)
+            .leftJoin(exams, eq(exams.sessionId, examIntentSessions.id))
+            .where(where),
     ]);
 
     return {
-        sessions: rows.map(({ examInput, ...row }) => ({
+        sessions: rows.map(({ examInput, examTitle, publishStatus, ...row }) => ({
             ...row,
-            title: examInput.title || null,
+            title: examTitle || examInput.title || null,
             sectionCount: examInput.sections.length,
             bookId: examInput.bookId ?? null,
+            publishStatus: publishStatus ?? "draft",
         })),
         total: countRows[0]!.count,
         page,

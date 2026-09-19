@@ -132,12 +132,15 @@ export const conversationTurnHandler = async (req: Request, res: Response, next:
     }
 };
 
+const SESSION_STATUS_FILTERS = ["all", "draft", "published", "closed"] as const;
+
 export const listSessionsHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const search = typeof req.query.search === "string" ? req.query.search : undefined;
         const page = req.query.page ? parseInt(String(req.query.page), 10) : undefined;
         const pageSize = req.query.pageSize ? parseInt(String(req.query.pageSize), 10) : undefined;
-        res.status(200).json({ success: true, data: await listSessions(req.user!, { search, page, pageSize }) });
+        const status = SESSION_STATUS_FILTERS.includes(req.query.status as any) ? (req.query.status as (typeof SESSION_STATUS_FILTERS)[number]) : undefined;
+        res.status(200).json({ success: true, data: await listSessions(req.user!, { search, page, pageSize, status }) });
     } catch (error) {
         next(error);
     }

@@ -191,7 +191,7 @@ export default function PublishExam() {
                 </p>
                 <p className="flex items-start gap-2">
                   <CalendarClock className="h-4 w-4 text-gray-500 shrink-0 mt-0.5" />
-                  <span>Either way, you can change the schedule, close it, or publish a draft later from the Published exams page.</span>
+                  <span>Either way, you can change the schedule, close it, or publish a draft later from the Exams page.</span>
                 </p>
               </div>
             </div>

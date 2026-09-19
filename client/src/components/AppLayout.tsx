@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react"
 import { NavLink, useLocation } from "react-router"
 import { useClerk, useUser } from "@clerk/react"
-import { BookOpen, ChevronsLeft, ChevronsRight, FileText, GraduationCap, KeyRound, LayoutDashboard, Library, LogOut, Menu, Send, Settings as SettingsIcon, Sparkles, Users, X } from "lucide-react"
+import { BookOpen, ChevronsLeft, ChevronsRight, FileText, GraduationCap, KeyRound, LayoutDashboard, Library, LogOut, Menu, Settings as SettingsIcon, Users, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RoleToggle } from "@/components/RoleToggle"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -14,7 +14,6 @@ const sidebarLinks: { name: string; href: string; icon: typeof LayoutDashboard; 
   { name: "Dashboard", href: "/", icon: LayoutDashboard, roles: ["admin", "examiner"] },
   { name: "My Exams", href: "/", icon: GraduationCap, roles: ["candidate"] },
   { name: "Exams", href: "/exams", icon: FileText, roles: ["admin", "examiner"] },
-  { name: "Published", href: "/published", icon: Send, roles: ["admin", "examiner"] },
   { name: "Question Bank", href: "/question-bank", icon: Library, roles: ["admin", "examiner"] },
   { name: "Books", href: "/books", icon: BookOpen, roles: ["admin", "examiner"] },
   { name: "Your OpenAI key", href: "/account", icon: KeyRound, roles: ["admin", "examiner"] },
@@ -41,10 +40,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-4 bg-black border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="bg-orange-600 p-1.5 rounded-md shadow-lg shadow-orange-950/40">
-              <Sparkles className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-bold text-lg text-white tracking-tight">AbhyasLM</span>
+            <img src="/Abhyas.png" alt="Abhyas" className="h-8 w-8 object-contain shrink-0" />
+            <span className="font-bold text-lg text-white tracking-tight">Abhyas</span>
           </div>
           <button onClick={() => setIsMobileOpen(true)} className="p-2 -mr-2 text-gray-400 hover:text-white" aria-label="Open menu">
             <Menu className="h-6 w-6" />
@@ -77,12 +74,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
           {/* Logo */}
           <div className={cn("p-6 flex items-center gap-3 border-b border-white/10", isCollapsed && "justify-center p-4")}>
-            <div className="bg-orange-600 p-2 rounded-lg shadow-lg shadow-orange-950/40 shrink-0">
-              <Sparkles className="h-6 w-6 text-white" />
-            </div>
+            <img src="/Abhyas.png" alt="Abhyas" className="h-9 w-9 object-contain shrink-0" />
             {!isCollapsed && (
               <div className="overflow-hidden whitespace-nowrap">
-                <p className="font-heading font-bold text-lg leading-tight tracking-tight text-white">AbhyasLM</p>
+                <p className="font-heading font-bold text-lg leading-tight tracking-tight text-white">Abhyas</p>
                 <p className="text-[11px] text-gray-400 font-medium tracking-wide uppercase">{role ? ROLE_LABEL[role] : "Exam Studio"}</p>
               </div>
             )}
