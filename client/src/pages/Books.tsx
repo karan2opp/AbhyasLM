@@ -9,6 +9,7 @@ import { bookStatusText, isBookWorking } from "@/components/BookPicker"
 import { StatusBadge } from "@/components/StatusBadge"
 import { PageHeader } from "@/components/workspace"
 import { useApi } from "@/lib/api"
+import { useUpload } from "@/lib/upload"
 import { useResource } from "@/lib/hooks"
 import { useRole } from "@/lib/session"
 import type { BookSummary } from "@/lib/types"
@@ -98,13 +99,14 @@ function BookCard({ book, onChanged }: { book: BookSummary; onChanged: () => voi
 }
 
 export default function Books() {
-  const api = useApi()
+  const upload = useUpload()
   const books = useResource<BookSummary[]>("/api/books", (list) => (list.some(isBookWorking) ? 4000 : null))
   const list = books.data ?? []
 
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState("")
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
 
   const handleUpload = async () => {
     if (!file) {
@@ -112,11 +114,12 @@ export default function Books() {
       return
     }
     setIsUploading(true)
+    setUploadProgress(0)
     try {
       const body = new FormData()
       body.append("file", file)
       if (title.trim()) body.append("title", title.trim())
-      await api("/api/books", { method: "POST", body })
+      await upload("/api/books", body, setUploadProgress)
       toast.success("Book uploaded. Indexing has started and can take a few minutes for a long book.")
       setFile(null)
       setTitle("")
@@ -125,6 +128,7 @@ export default function Books() {
       toast.error((err as Error).message || "Upload failed")
     } finally {
       setIsUploading(false)
+      setUploadProgress(null)
     }
   }
 
@@ -148,12 +152,24 @@ export default function Books() {
             <Button onClick={() => void handleUpload()} disabled={isUploading || !file} className="bg-orange-600 hover:bg-orange-700 text-white h-9 px-4 font-semibold">
               {isUploading ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> Uploading...
+                  <Loader2 className="size-4 animate-spin" /> Uploading... {uploadProgress ?? 0}%
                 </>
               ) : (
                 "Upload and index"
               )}
             </Button>
+            {isUploading && (
+              <div
+                className="w-full max-w-md bg-[#14151f] border border-white/10 rounded-full h-1.5 overflow-hidden"
+                role="progressbar"
+                aria-valuenow={uploadProgress ?? 0}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Upload progress"
+              >
+                <div className="h-full bg-gradient-to-r from-orange-600 to-amber-500 rounded-full transition-all duration-200" style={{ width: `${uploadProgress ?? 0}%` }} />
+              </div>
+            )}
           </CardContent>
         </Card>
 

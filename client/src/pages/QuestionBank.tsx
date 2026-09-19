@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { StatusBadge } from "@/components/StatusBadge"
 import { PageHeader } from "@/components/workspace"
 import { useApi } from "@/lib/api"
+import { useUpload } from "@/lib/upload"
 import { useResource } from "@/lib/hooks"
 import { useRole } from "@/lib/session"
 import type { PaperDocument, QuestionBankSearchResult } from "@/lib/types"
@@ -172,12 +173,14 @@ function DocumentRow({ doc, onChanged }: { doc: PaperDocument; onChanged: () => 
 
 export default function QuestionBank() {
   const api = useApi()
+  const upload = useUpload()
   const docs = useResource<PaperDocument[]>("/api/question-bank/documents", (list) => (list.some((d) => d.status === "pending" || d.status === "processing") ? 4000 : null))
   const documents = docs.data ?? []
 
   const [file, setFile] = useState<File | null>(null)
   const [docName, setDocName] = useState("")
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
 
   const [query, setQuery] = useState("")
   const [subject, setSubject] = useState("")
@@ -190,11 +193,12 @@ export default function QuestionBank() {
       return
     }
     setIsUploading(true)
+    setUploadProgress(0)
     try {
       const body = new FormData()
       body.append("file", file)
       if (docName.trim()) body.append("title", docName.trim())
-      await api("/api/question-bank/documents", { method: "POST", body })
+      await upload("/api/question-bank/documents", body, setUploadProgress)
       toast.success("Upload started — processing in the background")
       setFile(null)
       setDocName("")
@@ -203,6 +207,7 @@ export default function QuestionBank() {
       toast.error((err as Error).message || "Upload failed")
     } finally {
       setIsUploading(false)
+      setUploadProgress(null)
     }
   }
 
@@ -252,12 +257,24 @@ export default function QuestionBank() {
             <Button onClick={() => void handleUpload()} disabled={isUploading || !file} className="bg-orange-600 hover:bg-orange-700 text-white h-9 px-4 font-semibold">
               {isUploading ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> Uploading...
+                  <Loader2 className="size-4 animate-spin" /> Uploading... {uploadProgress ?? 0}%
                 </>
               ) : (
                 "Upload & Process"
               )}
             </Button>
+            {isUploading && (
+              <div
+                className="w-full max-w-md bg-[#14151f] border border-white/10 rounded-full h-1.5 overflow-hidden"
+                role="progressbar"
+                aria-valuenow={uploadProgress ?? 0}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Upload progress"
+              >
+                <div className="h-full bg-gradient-to-r from-orange-600 to-amber-500 rounded-full transition-all duration-200" style={{ width: `${uploadProgress ?? 0}%` }} />
+              </div>
+            )}
           </CardContent>
         </Card>
 
