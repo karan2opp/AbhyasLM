@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react"
 import { NavLink, useLocation } from "react-router"
 import { useClerk, useUser } from "@clerk/react"
-import { BookOpen, ChevronsLeft, ChevronsRight, FileText, GraduationCap, LayoutDashboard, Library, LogOut, Menu, Send, Settings as SettingsIcon, Sparkles, Users, X } from "lucide-react"
+import { BookOpen, ChevronsLeft, ChevronsRight, FileText, GraduationCap, KeyRound, LayoutDashboard, Library, LogOut, Menu, Send, Settings as SettingsIcon, Sparkles, Users, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RoleToggle } from "@/components/RoleToggle"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -17,6 +17,7 @@ const sidebarLinks: { name: string; href: string; icon: typeof LayoutDashboard; 
   { name: "Published", href: "/published", icon: Send, roles: ["admin", "examiner"] },
   { name: "Question Bank", href: "/question-bank", icon: Library, roles: ["admin", "examiner"] },
   { name: "Books", href: "/books", icon: BookOpen, roles: ["admin", "examiner"] },
+  { name: "Your OpenAI key", href: "/account", icon: KeyRound, roles: ["admin", "examiner"] },
   { name: "Users", href: "/users", icon: Users, roles: ["admin"] },
   { name: "Settings", href: "/settings", icon: SettingsIcon, roles: ["admin"] },
 ]

@@ -1,6 +1,8 @@
 import { inngest } from "../../../common/inngest/client.js";
 import { evaluateAnswer } from "../../evaluation/evaluation.js";
-import { getSubmission, pendingAiAnswers, recalculateScore, recordAnswerMark } from "../exam.service.js";
+import { getExam, getSubmission, pendingAiAnswers, recalculateScore, recordAnswerMark } from "../exam.service.js";
+import { resolveUserOpenAiKey } from "../../users/user.service.js";
+import { runWithUserOpenAiKey } from "../../../common/utils/request_context.js";
 
 /**
  * Grades the written answers of one submitted attempt, one answer per step so
@@ -26,11 +28,18 @@ export const gradeSubmissionFunction = inngest.createFunction(
     async ({ event, step }) => {
         const submissionId = event.data.submissionId as string;
 
-        const answers = await step.run("load-pending-answers", async () => {
+        // Grading spends the exam's OWNER's key, not the candidate's — the
+        // candidate has no relationship to the model provider at all.
+        const { answers, ownerId } = await step.run("load-pending-answers", async () => {
             const submission = await getSubmission(submissionId);
             if (!submission) throw new Error(`Submission ${submissionId} not found`);
-            return pendingAiAnswers(submissionId);
+            const exam = await getExam(submission.examId);
+            if (!exam) throw new Error(`Exam ${submission.examId} not found`);
+            return { answers: await pendingAiAnswers(submissionId), ownerId: exam.createdBy };
         });
+
+        const userOpenAiKey = await resolveUserOpenAiKey(ownerId);
+        await runWithUserOpenAiKey(userOpenAiKey, async () => {
 
         for (const answer of answers) {
             await step.run(`grade-${answer.answerId}`, async () => {
@@ -49,6 +58,7 @@ export const gradeSubmissionFunction = inngest.createFunction(
         await step.run("finalize", async () => {
             const updated = await recalculateScore(submissionId, { status: "submitted", evaluationError: null });
             console.log(`[exams] graded submission ${submissionId}: ${updated.score} mark(s) across ${answers.length} written answer(s)`);
+        });
         });
     },
 );

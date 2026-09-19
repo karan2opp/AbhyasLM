@@ -4,6 +4,7 @@ import { eq, desc } from "drizzle-orm";
 import db from "../../common/db/index.js";
 import { requireAuth, requireRole } from "../../common/middleware/auth.middleware.js";
 import { ApiError } from "../../common/utils/ApiError.js";
+import { encrypt } from "../../common/utils/crypto.js";
 import { users, userRoles } from "./user.schema.js";
 
 const me = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -29,6 +30,33 @@ const chooseRole = async (req: Request, res: Response, next: NextFunction): Prom
 
         const [updated] = await db.update(users).set({ role: parsed.data.role }).where(eq(users.id, req.user!.id)).returning();
         res.json({ success: true, data: { id: updated!.id, email: updated!.email, role: updated!.role } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const SetOpenAiKeyZodSchema = z.object({ apiKey: z.string().trim().min(20, "That doesn't look like a valid OpenAI key") });
+
+// Lets an examiner use their own OpenAI billing for generation/grading
+// instead of the platform's shared key. Stored encrypted (see crypto.ts);
+// the raw key is never read back — only whether one is set (see `me` below).
+const setOpenAiKey = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const parsed = SetOpenAiKeyZodSchema.safeParse(req.body);
+        if (!parsed.success) throw ApiError.badRequest(parsed.error.issues[0]?.message || "A valid OpenAI API key is required");
+        if (!parsed.data.apiKey.startsWith("sk-")) throw ApiError.badRequest('OpenAI keys start with "sk-"');
+
+        await db.update(users).set({ openaiApiKeyEncrypted: encrypt(parsed.data.apiKey) }).where(eq(users.id, req.user!.id));
+        res.json({ success: true, data: { hasOwnOpenAiKey: true } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const deleteOpenAiKey = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        await db.update(users).set({ openaiApiKeyEncrypted: null }).where(eq(users.id, req.user!.id));
+        res.json({ success: true, data: { hasOwnOpenAiKey: false } });
     } catch (error) {
         next(error);
     }
@@ -72,6 +100,8 @@ const router = Router();
 
 router.get("/me", requireAuth, me);
 router.post("/me/role", requireAuth, chooseRole);
+router.post("/me/openai-key", requireAuth, setOpenAiKey);
+router.delete("/me/openai-key", requireAuth, deleteOpenAiKey);
 router.get("/admin/users", requireAuth, requireRole("admin"), listUsers);
 router.patch("/admin/users/:userId/role", requireAuth, requireRole("admin"), setUserRole);
 

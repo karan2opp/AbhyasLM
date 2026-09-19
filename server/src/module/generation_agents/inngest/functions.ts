@@ -1,5 +1,7 @@
 import { createId } from "@paralleldrive/cuid2";
 import { inngest } from "../../../common/inngest/client.js";
+import { resolveUserOpenAiKey } from "../../users/user.service.js";
+import { runWithUserOpenAiKey } from "../../../common/utils/request_context.js";
 import { generateSectionSubtopics } from "../agents/subtopics_agent.js";
 import { generateTopicQuestions, type GenerateTopicQuestionsInput } from "../agents/generation_agent.js";
 import { verifyAndRepairTopicQuestions } from "../topic_question_verification.js";
@@ -63,6 +65,9 @@ export const generateBlueprintFunction = inngest.createFunction(
                 console.log(`[generation-agent-generate-blueprint] loaded session ${sessionId}, ${s.examInput.sections.length} section(s)`);
                 return s;
             });
+
+            const userOpenAiKey = await resolveUserOpenAiKey(session.createdBy);
+            await runWithUserOpenAiKey(userOpenAiKey, async () => {
 
             const examInput = session.examInput;
             const summary = session.summary!;
@@ -129,6 +134,7 @@ export const generateBlueprintFunction = inngest.createFunction(
                 await saveBlueprint(sessionId, { sections: allocatedSections });
                 console.log(`[generation-agent-generate-blueprint] allocated questions and saved blueprint for session ${sessionId}`);
             });
+            });
         } catch (err: any) {
             await markBlueprintFailed(sessionId, err?.message || "Unknown error generating blueprint");
             throw err;
@@ -178,6 +184,9 @@ export const generateQuestionsFunction = inngest.createFunction(
                 if (!s.summary) throw new Error(`Session ${sessionId} has no summary yet`);
                 return s;
             });
+
+            const userOpenAiKey = await resolveUserOpenAiKey(session.createdBy);
+            await runWithUserOpenAiKey(userOpenAiKey, async () => {
 
             const examInput = session.examInput;
             const summary = session.summary!;
@@ -249,6 +258,7 @@ export const generateQuestionsFunction = inngest.createFunction(
             await step.run("finalize-questions", async () => {
                 await markQuestionsCompleted(sessionId);
                 console.log(`[generation-agent-generate-questions] all sections generated for session ${sessionId}`);
+            });
             });
         } catch (err: any) {
             await markQuestionsFailed(sessionId, err?.message || "Unknown error generating questions");

@@ -15,6 +15,11 @@ export const users = pgTable("users", {
     email: text("email"),
     name: text("name"),
     role: text("role").$type<UserRole>(),
+    // AES-256-GCM ciphertext (see common/utils/crypto.ts) of the examiner's
+    // own OpenAI key, if they've set one — falls back to the platform's
+    // shared key otherwise. Never sent to the client; only a boolean
+    // presence flag is (see user.route.ts).
+    openaiApiKeyEncrypted: text("openai_api_key_encrypted"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

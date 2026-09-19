@@ -10,6 +10,7 @@ import CandidateHome from "@/pages/CandidateHome"
 import ChooseRole from "@/pages/ChooseRole"
 import Dashboard from "@/pages/Dashboard"
 import Landing from "@/pages/Landing"
+import PipelineDetail from "@/pages/PipelineDetail"
 
 // Loaded on first visit, so e.g. the markdown and maths renderers only download with the pages that use them.
 const BookDetail = lazy(() => import("@/pages/BookDetail"))
@@ -26,6 +27,7 @@ const Result = lazy(() => import("@/pages/Result"))
 const PublishedExams = lazy(() => import("@/pages/PublishedExams"))
 const PublishedExamDetail = lazy(() => import("@/pages/PublishedExamDetail"))
 const EditExam = lazy(() => import("@/pages/EditExam"))
+const AccountSettings = lazy(() => import("@/pages/AccountSettings"))
 
 // Keyed by session so moving from one exam to another starts the page fresh
 // instead of carrying over the previous exam's chat and plan state.
@@ -99,6 +101,7 @@ function SignedInApp() {
             <Route path="/results/:submissionId" element={<Result />} />
             <Route path="/users" element={<RoleRoute allow={["admin"]}><Users /></RoleRoute>} />
             <Route path="/settings" element={<RoleRoute allow={["admin"]}><Settings /></RoleRoute>} />
+            <Route path="/account" element={<RoleRoute allow={examiners}><AccountSettings /></RoleRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
@@ -112,7 +115,10 @@ export default function App() {
     <BrowserRouter>
       <ErrorBoundary>
         <Show when="signed-out">
-          <Landing />
+          <Routes>
+            <Route path="/pipelines/:slug" element={<PipelineDetail />} />
+            <Route path="*" element={<Landing />} />
+          </Routes>
         </Show>
         <Show when="signed-in">
           <SessionProvider>

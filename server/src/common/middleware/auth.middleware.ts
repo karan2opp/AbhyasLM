@@ -4,12 +4,14 @@ import { eq } from "drizzle-orm";
 import db from "../db/index.js";
 import { users, type UserRole } from "../../module/users/user.schema.js";
 import { ApiError } from "../utils/ApiError.js";
+import { decrypt } from "../utils/crypto.js";
+import { runWithUserOpenAiKey } from "../utils/request_context.js";
 
 declare global {
     namespace Express {
         interface Request {
             // `role` is null until the user picks one right after signing up.
-            user?: { id: string; email: string | null; role: UserRole | null };
+            user?: { id: string; email: string | null; role: UserRole | null; hasOwnOpenAiKey: boolean };
         }
     }
 }
@@ -59,8 +61,21 @@ export const requireAuth = async (req: Request, _res: Response, next: NextFuncti
         if (!userId) throw ApiError.unauthorized("Sign in required");
 
         const user = await loadOrCreateUser(userId);
-        req.user = { id: user.id, email: user.email, role: user.role };
-        next();
+        req.user = { id: user.id, email: user.email, role: user.role, hasOwnOpenAiKey: !!user.openaiApiKeyEncrypted };
+
+        // Makes this user's own OpenAI key (if they've set one) available to
+        // every AI call this request triggers, direct or via Inngest — see
+        // request_context.ts and openai.client.ts.
+        let userOpenAiKey: string | undefined;
+        if (user.openaiApiKeyEncrypted) {
+            try {
+                userOpenAiKey = decrypt(user.openaiApiKeyEncrypted);
+            } catch {
+                // ENCRYPTION_KEY rotated or data corrupted — fall back to the
+                // platform key rather than failing the whole request.
+            }
+        }
+        runWithUserOpenAiKey(userOpenAiKey, next);
     } catch (error) {
         next(error);
     }

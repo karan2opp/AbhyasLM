@@ -15,6 +15,9 @@ const envSchema = z.object({
   PDF_VISION_MODEL: z.string().default("gpt-4.1-mini"),
   EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   PYTHON_BIN: z.string().default("python3"),
+  // Encrypts examiners' own OpenAI keys at rest (see common/utils/crypto.ts).
+  // Any random string works — hashed down to a 32-byte AES key internally.
+  ENCRYPTION_KEY: z.string().min(16, "ENCRYPTION_KEY is required (any random string 16+ chars, used to encrypt users' own API keys)"),
 });
 
 function createEnv(env: NodeJS.ProcessEnv) {

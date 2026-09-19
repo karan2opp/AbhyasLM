@@ -1,4 +1,4 @@
-import { eq, asc, desc } from "drizzle-orm";
+import { and, eq, asc, desc, sql } from "drizzle-orm";
 import db from "../../common/db/index.js";
 import { users } from "../users/user.schema.js";
 import { examIntentSessions, examIntentMessages, blueprintReviewMessages, questionReviewMessages } from "./exam_intent_session.schema.js";
@@ -19,31 +19,58 @@ export const createSession = async (examInput: IInputExam, createdBy: string) =>
  * The caller's sessions, newest first — or, for an admin, everyone's — just
  * enough to list them, without the large JSON columns. The owner's email is
  * only meaningful (and only shown by the client) when an admin is looking at
- * someone else's session.
+ * someone else's session. Search matches the title stored inside the
+ * examInput JSON column (there's no separate title column); pagination and
+ * the total count both run server-side so the client never has to fetch
+ * every session to filter or page through them.
  */
-export const listSessions = async (requester: { id: string; role: string | null }) => {
-    const rows = await db
-        .select({
-            id: examIntentSessions.id,
-            examInput: examIntentSessions.examInput,
-            status: examIntentSessions.status,
-            blueprintStatus: examIntentSessions.blueprintStatus,
-            questionsStatus: examIntentSessions.questionsStatus,
-            createdBy: examIntentSessions.createdBy,
-            ownerEmail: users.email,
-            createdAt: examIntentSessions.createdAt,
-            updatedAt: examIntentSessions.updatedAt,
-        })
-        .from(examIntentSessions)
-        .leftJoin(users, eq(examIntentSessions.createdBy, users.id))
-        .where(requester.role === "admin" ? undefined : eq(examIntentSessions.createdBy, requester.id))
-        .orderBy(desc(examIntentSessions.createdAt));
-    return rows.map(({ examInput, ...row }) => ({
-        ...row,
-        title: examInput.title || null,
-        sectionCount: examInput.sections.length,
-        bookId: examInput.bookId ?? null,
-    }));
+export const listSessions = async (
+    requester: { id: string; role: string | null },
+    options: { search?: string | undefined; page?: number | undefined; pageSize?: number | undefined } = {}
+) => {
+    const page = Math.max(1, options.page ?? 1);
+    const pageSize = Math.min(60, Math.max(1, options.pageSize ?? 12));
+    const search = options.search?.trim();
+
+    const conditions = [
+        requester.role === "admin" ? undefined : eq(examIntentSessions.createdBy, requester.id),
+        search ? sql`${examIntentSessions.examInput}->>'title' ilike ${`%${search}%`}` : undefined,
+    ].filter((c): c is NonNullable<typeof c> => c !== undefined);
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [rows, countRows] = await Promise.all([
+        db
+            .select({
+                id: examIntentSessions.id,
+                examInput: examIntentSessions.examInput,
+                status: examIntentSessions.status,
+                blueprintStatus: examIntentSessions.blueprintStatus,
+                questionsStatus: examIntentSessions.questionsStatus,
+                createdBy: examIntentSessions.createdBy,
+                ownerEmail: users.email,
+                createdAt: examIntentSessions.createdAt,
+                updatedAt: examIntentSessions.updatedAt,
+            })
+            .from(examIntentSessions)
+            .leftJoin(users, eq(examIntentSessions.createdBy, users.id))
+            .where(where)
+            .orderBy(desc(examIntentSessions.createdAt))
+            .limit(pageSize)
+            .offset((page - 1) * pageSize),
+        db.select({ count: sql<number>`count(*)::int` }).from(examIntentSessions).where(where),
+    ]);
+
+    return {
+        sessions: rows.map(({ examInput, ...row }) => ({
+            ...row,
+            title: examInput.title || null,
+            sectionCount: examInput.sections.length,
+            bookId: examInput.bookId ?? null,
+        })),
+        total: countRows[0]!.count,
+        page,
+        pageSize,
+    };
 };
 
 export const getSession = async (sessionId: string) => {

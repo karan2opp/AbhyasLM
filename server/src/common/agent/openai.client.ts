@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { getUserOpenAiKey } from "../utils/request_context.js";
 
 dotenv.config();
 
@@ -6,6 +7,14 @@ let openaiClient: any = null;
 let mistralClient: any = null;
 
 const getOpenAI = async () => {
+    // A signed-in examiner's own key, if they've set one — see
+    // request_context.ts. Never cached module-wide since it's per-user.
+    const userKey = getUserOpenAiKey();
+    if (userKey) {
+        const openai = (await import("openai")).default;
+        return new openai.OpenAI({ apiKey: userKey });
+    }
+
     if (openaiClient) return openaiClient;
     const API_KEY = process.env.OPENAI_API_KEY;
     if (!API_KEY) {

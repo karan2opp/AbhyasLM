@@ -11,6 +11,8 @@ import { parseAnswerKey, stripAnswerKeyContent } from "../question_bank_answer_k
 import { getDocument, markDocumentProcessing, markDocumentCompleted, markDocumentFailed, saveChunk, embedText } from "../question_bank.service.js";
 import { upsertQuestionBankPoints } from "../qdrant_client.js";
 import type { QuestionBankImage, QuestionBankTable, QuestionBankList } from "../question_bank.schema.js";
+import { resolveUserOpenAiKey } from "../../users/user.service.js";
+import { runWithUserOpenAiKey } from "../../../common/utils/request_context.js";
 
 // How many chunks get their images uploaded / embedded / persisted at once.
 const PERSIST_CONCURRENCY = 3;
@@ -50,6 +52,9 @@ export const processQuestionBankDocumentFunction = inngest.createFunction(
                 await markDocumentProcessing(documentId);
                 return doc;
             });
+
+            const userOpenAiKey = await resolveUserOpenAiKey(document.createdBy);
+            await runWithUserOpenAiKey(userOpenAiKey, async () => {
 
             const { extracted, tmpDir: dir } = await step.run("download-and-extract", async () => {
                 const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "question-bank-"));
@@ -163,6 +168,7 @@ export const processQuestionBankDocumentFunction = inngest.createFunction(
             await step.run("finalize", async () => {
                 await markDocumentCompleted(documentId, totalChunks);
                 console.log(`[question-bank] document ${documentId} completed with ${totalChunks} chunk(s)`);
+            });
             });
         } catch (err: any) {
             await markDocumentFailed(documentId, err?.message || "Unknown error processing document");

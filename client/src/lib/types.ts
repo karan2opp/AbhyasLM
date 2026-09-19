@@ -111,6 +111,14 @@ export interface SessionSummary {
   createdAt: string
 }
 
+/** GET /api/generation-agents/sessions — search and pagination both run server-side. */
+export interface SessionListResponse {
+  sessions: SessionSummary[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export interface Session {
   id: string
   examInput: ExamInput
@@ -237,6 +245,8 @@ export interface Me {
   email: string | null
   /** null until the user picks a role right after signing up. */
   role: UserRole | null
+  /** Whether this examiner has set their own OpenAI key (see AccountSettings.tsx). */
+  hasOwnOpenAiKey: boolean
 }
 
 export interface UserSummary {

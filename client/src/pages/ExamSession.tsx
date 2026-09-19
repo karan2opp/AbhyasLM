@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router"
-import { ArrowLeft, Download, RotateCcw, Send, Sparkles } from "lucide-react"
+import { ArrowLeft, RotateCcw, Send, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { AgentChat } from "@/components/AgentChat"
@@ -336,16 +336,6 @@ function ReviewStage({ session, header }: { session: Session; header: React.Reac
     }
   }
 
-  const download = () => {
-    const data = { title: session.examInput.title || "Untitled Exam", difficulty: session.examInput.difficulty, ...exam }
-    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }))
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${(session.examInput.title || "exam").replace(/[^\w-]+/g, "-")}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <WorkspaceShell
       header={header}
@@ -375,14 +365,9 @@ function ReviewStage({ session, header }: { session: Session; header: React.Reac
           <Button variant="ghost" onClick={() => navigate("/exams")} className={ghostButton}>
             <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to Exams
           </Button>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={download} className="bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20 h-10 text-sm font-semibold px-4">
-              <Download className="h-4 w-4 mr-2" /> Download JSON
-            </Button>
-            <Button onClick={() => navigate(`/exams/${session.id}/publish`)} className={primaryButton}>
-              <Send className="h-4 w-4 mr-2" /> Continue to Publish
-            </Button>
-          </div>
+          <Button onClick={() => navigate(`/exams/${session.id}/publish`)} className={primaryButton}>
+            <Send className="h-4 w-4 mr-2" /> Continue to Publish
+          </Button>
         </>
       }
     />

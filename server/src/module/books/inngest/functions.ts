@@ -1,8 +1,10 @@
 import { NonRetriableError } from "inngest";
 import { inngest } from "../../../common/inngest/client.js";
 import { BookInputError, extractAndStoreBlocks, indexBookWindow, mergeAndSaveIndex } from "../book_pipeline.js";
-import { markBookFailed } from "../book.service.js";
+import { getBook, markBookFailed } from "../book.service.js";
 import type { WindowResult } from "../book_windows.js";
+import { resolveUserOpenAiKey } from "../../users/user.service.js";
+import { runWithUserOpenAiKey } from "../../../common/utils/request_context.js";
 
 // Windows are indexed in parallel waves of this size, which keeps a large book under the model's rate limits.
 const WINDOW_WAVE_SIZE = 6;
@@ -28,6 +30,14 @@ export const indexBookFunction = inngest.createFunction(
         const bookId = event.data.bookId as string;
 
         try {
+            const book = await step.run("load-book", async () => {
+                const b = await getBook(bookId);
+                if (!b) throw new Error(`Book ${bookId} not found`);
+                return b;
+            });
+            const userOpenAiKey = await resolveUserOpenAiKey(book.createdBy);
+            await runWithUserOpenAiKey(userOpenAiKey, async () => {
+
             const plan = await step.run("extract-blocks", async () => {
                 try {
                     return await extractAndStoreBlocks(bookId);
@@ -48,6 +58,7 @@ export const indexBookFunction = inngest.createFunction(
 
             await step.run("merge-and-save", async () => {
                 await mergeAndSaveIndex(bookId, results);
+            });
             });
         } catch (err: any) {
             await markBookFailed(bookId, err?.message || "Unknown error indexing book");

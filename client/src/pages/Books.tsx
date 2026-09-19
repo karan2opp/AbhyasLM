@@ -16,7 +16,9 @@ import type { BookSummary } from "@/lib/types"
 const cardClass = "bg-[#0f0f11] border border-white/10 ring-0"
 const inputClass = "bg-[#14151f] border border-white/15 text-white placeholder:text-zinc-500 h-9 text-sm rounded-lg"
 
-function BookRow({ book, onChanged }: { book: BookSummary; onChanged: () => void }) {
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+
+function BookCard({ book, onChanged }: { book: BookSummary; onChanged: () => void }) {
   const api = useApi()
   const role = useRole()
   const [isDeleting, setIsDeleting] = useState(false)
@@ -36,38 +38,56 @@ function BookRow({ book, onChanged }: { book: BookSummary; onChanged: () => void
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-[#0b0b0d] p-3 text-sm">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="h-9 w-9 bg-orange-600/20 text-orange-400 rounded-lg flex items-center justify-center border border-orange-500/30 shrink-0">
-          <BookOpen className="h-4 w-4" />
+    <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-[#0f0f11] p-5 hover:border-orange-500/30 transition-colors">
+      <div className="flex items-center justify-between gap-2">
+        <div className="h-10 w-10 bg-orange-600/20 text-orange-400 rounded-lg flex items-center justify-center border border-orange-500/30 shrink-0">
+          <BookOpen className="h-5 w-5" />
         </div>
-        <div className="min-w-0 flex-1">
-          {book.status === "completed" ? (
-            <Link to={`/books/${book.id}`} className="block truncate font-medium text-white hover:text-orange-300">
-              {book.title}
-            </Link>
-          ) : (
-            <span className="block truncate font-medium text-white">{book.title}</span>
-          )}
-          {book.status === "failed" ? (
-            <span className="text-xs text-red-400">{book.error}</span>
-          ) : (
-            <span className="text-xs text-gray-500">{bookStatusText(book)}</span>
-          )}
-          {pct !== null && (
-            <div className="mt-1.5 w-full max-w-xs bg-[#14151f] border border-white/10 rounded-full h-1.5 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Indexing progress">
-              <div className="h-full bg-gradient-to-r from-orange-600 to-amber-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
-            </div>
-          )}
-          {role === "admin" && book.ownerEmail && <span className="block text-[11px] text-gray-500">Uploaded by {book.ownerEmail}</span>}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
         <StatusBadge status={book.status} label={isBookWorking(book) ? "Indexing" : undefined} />
-        {book.status === "completed" && (
-          <Link to={`/books/${book.id}`} className="text-xs font-semibold text-orange-400 hover:text-orange-300 px-2">
+      </div>
+
+      {book.status === "completed" ? (
+        <Link to={`/books/${book.id}`} className="text-lg font-bold text-white hover:text-orange-300 leading-snug line-clamp-2">
+          {book.title}
+        </Link>
+      ) : (
+        <span className="text-lg font-bold text-white leading-snug line-clamp-2">{book.title}</span>
+      )}
+
+      <div className="rounded-xl border border-white/10 bg-black/20 p-3.5 space-y-1.5">
+        {book.status === "failed" ? (
+          <p className="text-xs text-red-400">{book.error}</p>
+        ) : (
+          <p className="text-xs text-gray-400">{bookStatusText(book)}</p>
+        )}
+        {pct !== null && (
+          <div className="w-full bg-[#14151f] border border-white/10 rounded-full h-1.5 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Indexing progress">
+            <div className="h-full bg-gradient-to-r from-orange-600 to-amber-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+          </div>
+        )}
+        <p className="text-xs text-gray-400">
+          Pages: <span className="text-gray-200">{book.pageCount ?? "—"}</span>
+        </p>
+        <p className="text-xs text-gray-400">
+          Uploaded: <span className="text-gray-200">{formatDate(book.createdAt)}</span>
+        </p>
+        {role === "admin" && book.ownerEmail && (
+          <p className="text-xs text-gray-400">
+            By: <span className="text-gray-200">{book.ownerEmail}</span>
+          </p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+        {book.status === "completed" ? (
+          <Link
+            to={`/books/${book.id}`}
+            className="flex-1 inline-flex items-center justify-center rounded-lg bg-orange-600 hover:bg-orange-700 px-3 h-8 text-xs font-bold text-white transition-colors"
+          >
             Browse
           </Link>
+        ) : (
+          <span className="flex-1 text-xs text-gray-500 italic">Not ready yet</span>
         )}
         <Button variant="ghost" size="icon-sm" onClick={() => void handleDelete()} disabled={isDeleting} aria-label={`Delete ${book.title}`} title="Delete book">
           {isDeleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5 text-red-400" />}
@@ -110,7 +130,7 @@ export default function Books() {
 
   return (
     <div className="p-6 md:p-10">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <PageHeader title="Books" description="Upload a textbook to index its chapters. Pick it in the From Source mode and questions are written from the matching sections." />
 
         <Card className={cardClass}>
@@ -137,32 +157,29 @@ export default function Books() {
           </CardContent>
         </Card>
 
-        <Card className={cardClass}>
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <div>
-              <CardTitle className="text-white">Library</CardTitle>
-              <CardDescription className="text-gray-400">Open an indexed book to browse the contents questions are written from.</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => void books.reload()} className="bg-transparent border-white/15 text-gray-300 hover:text-white">
-              <RefreshCw className="size-3.5" /> Refresh
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {books.loading ? (
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <Loader2 className="size-3.5 animate-spin" /> Loading books...
-              </div>
-            ) : list.length === 0 ? (
-              <div className="text-xs italic text-gray-500">No books uploaded yet</div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {list.map((book) => (
-                  <BookRow key={book.id} book={book} onChanged={() => void books.reload()} />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-white font-bold text-lg">Library ({list.length})</h2>
+            <p className="text-gray-400 text-sm">Open an indexed book to browse the contents questions are written from.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void books.reload()} className="bg-transparent border-white/15 text-gray-300 hover:text-white">
+            <RefreshCw className="size-3.5" /> Refresh
+          </Button>
+        </div>
+
+        {books.loading ? (
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Loader2 className="size-3.5 animate-spin" /> Loading books...
+          </div>
+        ) : list.length === 0 ? (
+          <div className="text-xs italic text-gray-500">No books uploaded yet</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {list.map((book) => (
+              <BookCard key={book.id} book={book} onChanged={() => void books.reload()} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

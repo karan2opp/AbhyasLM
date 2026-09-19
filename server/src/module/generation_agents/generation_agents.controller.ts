@@ -134,7 +134,10 @@ export const conversationTurnHandler = async (req: Request, res: Response, next:
 
 export const listSessionsHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        res.status(200).json({ success: true, data: await listSessions(req.user!) });
+        const search = typeof req.query.search === "string" ? req.query.search : undefined;
+        const page = req.query.page ? parseInt(String(req.query.page), 10) : undefined;
+        const pageSize = req.query.pageSize ? parseInt(String(req.query.pageSize), 10) : undefined;
+        res.status(200).json({ success: true, data: await listSessions(req.user!, { search, page, pageSize }) });
     } catch (error) {
         next(error);
     }

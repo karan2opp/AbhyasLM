@@ -1,8 +1,10 @@
+import { useMemo, useState } from "react"
 import { Link } from "react-router"
-import { CalendarClock, Copy, FileText, Loader2, Pencil, Send, Trash2, Users } from "lucide-react"
+import { CalendarClock, Copy, Loader2, Pencil, Plus, Search, Send, Trash2, Users } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { LoadingRow, PageHeader } from "@/components/workspace"
 import { useApi } from "@/lib/api"
 import { useAction, useResource } from "@/lib/hooks"
@@ -36,7 +38,7 @@ export function JoinCode({ code }: { code: string }) {
   )
 }
 
-function ExamRow({ exam, onChanged }: { exam: PublishedExam; onChanged: () => void }) {
+function ExamCard({ exam, onChanged }: { exam: PublishedExam; onChanged: () => void }) {
   const api = useApi()
 
   const setStatus = useAction(async (status: PublishedExam["status"]) => {
@@ -52,36 +54,56 @@ function ExamRow({ exam, onChanged }: { exam: PublishedExam; onChanged: () => vo
   })
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/5 bg-[#0f0f11] p-4 hover:border-white/10 transition-all">
-      <div className="min-w-0 flex-1">
-        <Link to={`/published/${exam.id}`} className="text-white font-semibold text-sm hover:text-orange-300 truncate block">
-          {exam.title}
-        </Link>
-        <p className="text-gray-500 text-xs">
-          {exam.questionCount} questions · {exam.totalMarks} marks · {exam.durationMinutes} min
-        </p>
-        {(exam.opensAt || exam.closesAt) && (
-          <p className="text-gray-500 text-xs flex items-center gap-1 mt-0.5">
-            <CalendarClock className="h-3 w-3 shrink-0" />
-            {exam.opensAt && <span>Starts {formatDateTime(exam.opensAt)}</span>}
-            {exam.opensAt && exam.closesAt && <span aria-hidden="true">·</span>}
-            {exam.closesAt && <span>Ends {formatDateTime(exam.closesAt)}</span>}
-          </p>
-        )}
+    <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-[#0f0f11] p-5 hover:border-orange-500/30 transition-colors">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-xs text-gray-500">
+          {exam.questionCount} question{exam.questionCount === 1 ? "" : "s"}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border", STATUS_TONES[exam.status])}>{exam.status}</span>
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border border-orange-500/30 bg-orange-500/10 text-orange-300">
+            Max Marks {exam.totalMarks}
+          </span>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
+      <Link to={`/published/${exam.id}`} className="text-lg font-bold text-white hover:text-orange-300 leading-snug line-clamp-2">
+        {exam.title}
+      </Link>
+
+      <div className="rounded-xl border border-white/10 bg-black/20 p-3.5 space-y-1.5">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-300 mb-1.5">
+          <CalendarClock className="h-3.5 w-3.5 text-orange-400" /> Timeline &amp; Details
+        </p>
+        <p className="text-xs text-gray-400">
+          Start: <span className="text-gray-200">{exam.opensAt ? formatDateTime(exam.opensAt) : "—"}</span>
+        </p>
+        <p className="text-xs text-gray-400">
+          Due: <span className="text-gray-200">{exam.closesAt ? formatDateTime(exam.closesAt) : "—"}</span>
+        </p>
+        <p className="text-xs text-gray-400">
+          Duration: <span className="text-orange-300 font-semibold">{exam.durationMinutes} mins</span>
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
         {exam.status === "draft" ? (
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-gray-400">
-            <FileText className="h-3 w-3" /> Not published yet
-          </span>
+          <span className="text-xs text-gray-500 italic">Not published yet</span>
         ) : (
           <JoinCode code={exam.joinCode} />
         )}
-        <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+        <span className="inline-flex items-center gap-1 text-xs text-gray-400 shrink-0">
           <Users className="h-3.5 w-3.5" /> {exam.submissionCount}
         </span>
-        <span className={cn("text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider border", STATUS_TONES[exam.status])}>{exam.status}</span>
+      </div>
+
+      <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+        <Link
+          to={`/published/${exam.id}/edit`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-transparent px-3 h-8 text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+        >
+          <Pencil className="h-3.5 w-3.5" /> Edit
+        </Link>
         <Button
           variant="outline"
           size="sm"
@@ -95,12 +117,10 @@ function ExamRow({ exam, onChanged }: { exam: PublishedExam; onChanged: () => vo
           {setStatus.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : exam.status === "published" ? "Close" : exam.status === "draft" ? "Publish" : "Reopen"}
         </Button>
         <Link
-          to={`/published/${exam.id}/edit`}
-          aria-label={`Edit ${exam.title}`}
-          title="Edit exam"
-          className="inline-flex size-7 items-center justify-center rounded-lg text-gray-300 hover:bg-muted hover:text-foreground transition-colors"
+          to={`/published/${exam.id}`}
+          className="flex-1 inline-flex items-center justify-center rounded-lg bg-orange-600 hover:bg-orange-700 px-3 h-8 text-xs font-bold text-white transition-colors"
         >
-          <Pencil className="size-3.5" />
+          Results
         </Link>
         <Button
           variant="ghost"
@@ -118,14 +138,43 @@ function ExamRow({ exam, onChanged }: { exam: PublishedExam; onChanged: () => vo
   )
 }
 
+const FILTERS: { key: "all" | PublishedExam["status"]; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "published", label: "Published" },
+  { key: "draft", label: "Draft" },
+  { key: "closed", label: "Closed" },
+]
+
 export default function PublishedExams() {
   const exams = useResource<PublishedExam[]>("/api/exams")
   const list = exams.data ?? []
+  const [query, setQuery] = useState("")
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all")
+
+  const filtered = useMemo(() => {
+    return list.filter((exam) => {
+      if (filter !== "all" && exam.status !== filter) return false
+      if (query.trim() && !exam.title.toLowerCase().includes(query.trim().toLowerCase())) return false
+      return true
+    })
+  }, [list, filter, query])
+
+  const countFor = (key: (typeof FILTERS)[number]["key"]) => (key === "all" ? list.length : list.filter((e) => e.status === key).length)
 
   return (
     <div className="p-6 md:p-10">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6">
-        <PageHeader title="Published exams" description="Exams candidates can sit. Share the code with them; close an exam to stop new attempts." />
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+        <PageHeader
+          title={`Published exams (${list.length})`}
+          description="Exams candidates can sit. Share the code with them; close an exam to stop new attempts."
+          actions={
+            <Link to="/exams/new">
+              <Button className="bg-orange-600 hover:bg-orange-700 text-white h-10 px-5 font-semibold rounded-xl shadow-lg shadow-orange-950/40">
+                <Plus className="h-4 w-4 mr-1.5" /> New Exam
+              </Button>
+            </Link>
+          }
+        />
 
         {exams.loading ? (
           <LoadingRow label="Loading exams..." />
@@ -146,11 +195,43 @@ export default function PublishedExams() {
             </CardContent>
           </Card>
         ) : (
-          <div className="flex flex-col gap-2">
-            {list.map((exam) => (
-              <ExamRow key={exam.id} exam={exam} onChanged={() => void exams.reload()} />
-            ))}
-          </div>
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-[220px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search exams by title..."
+                  className="h-10 pl-9 bg-[#14151f] border border-white/15 text-white placeholder:text-zinc-500 text-sm rounded-lg"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    className={cn(
+                      "h-9 px-3.5 rounded-lg text-xs font-bold transition-colors",
+                      filter === f.key ? "bg-orange-600 text-white" : "bg-[#14151f] border border-white/10 text-gray-400 hover:text-white",
+                    )}
+                  >
+                    {f.label} ({countFor(f.key)})
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filtered.length === 0 ? (
+              <p className="text-sm text-gray-500 italic py-8 text-center">No exams match that search.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filtered.map((exam) => (
+                  <ExamCard key={exam.id} exam={exam} onChanged={() => void exams.reload()} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
