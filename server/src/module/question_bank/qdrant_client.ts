@@ -68,9 +68,10 @@ export interface QuestionBankPointPayload {
 }
 
 // Who is asking. No organisation concept in this project — access is
-// strictly "mine."
+// "mine," unless the requester is an admin, who may reach anyone's.
 export interface QuestionBankAccess {
     userId: string;
+    role: string | null;
 }
 
 export async function upsertQuestionBankPoints(
@@ -118,7 +119,8 @@ export async function searchQuestionBankPoints(
     await ensureQuestionBankCollection();
     const qdrant = getQdrantClient();
 
-    const must: Record<string, unknown>[] = [{ key: "createdBy", match: { value: access.userId } }];
+    // Admins search across everyone's chunks; everyone else, only their own.
+    const must: Record<string, unknown>[] = access.role === "admin" ? [] : [{ key: "createdBy", match: { value: access.userId } }];
     if (options.subject) must.push({ key: "subject", match: { value: options.subject } });
     if (options.topics && options.topics.length > 0) must.push({ key: "topics", match: { any: options.topics } });
     if (options.documentIds && options.documentIds.length > 0) {

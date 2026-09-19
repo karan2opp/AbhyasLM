@@ -1,0 +1,14 @@
+2026-09-18T16:02:23.784Z Error: Failed query: select "id", "email", "name", "role", "created_at" from "users" where "users"."id" = $1
+params: user_3JSd7BXKIkN89H02Cy7kAJyVX9a
+    at NodePgPreparedQuery.queryWithCache (D:\abhyaslm\server\node_modules\src\pg-core\session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (D:\abhyaslm\server\node_modules\src\node-postgres\session.ts:154:19)
+    at async loadOrCreateUser (D:\abhyaslm\server\src\common\middleware\auth.middleware.ts:28:24)
+    at async requireAuth (D:\abhyaslm\server\src\common\middleware\auth.middleware.ts:61:22)
+2026-09-18T16:28:16.350Z Error: Failed query: select "id", "email", "name", "role", "created_at" from "users" where "users"."id" = $1
+params: user_3JSd7BXKIkN89H02Cy7kAJyVX9a
+    at NodePgPreparedQuery.queryWithCache (D:\abhyaslm\server\node_modules\src\pg-core\session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (D:\abhyaslm\server\node_modules\src\node-postgres\session.ts:154:19)
+    at async loadOrCreateUser (D:\abhyaslm\server\src\common\middleware\auth.middleware.ts:28:24)
+    at async requireAuth (D:\abhyaslm\server\src\common\middleware\auth.middleware.ts:61:22)

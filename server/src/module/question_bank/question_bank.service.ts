@@ -1,8 +1,9 @@
 import { eq, inArray, desc } from "drizzle-orm";
 import db from "../../common/db/index.js";
+import { users } from "../users/user.schema.js";
 import { questionBankDocuments, questionBankChunks, type NewQuestionBankChunk } from "./question_bank.schema.js";
 import { getClientForModel } from "../../common/agent/openai.client.js";
-import { env } from "../../env.js";
+import { getSetting } from "../settings/settings.service.js";
 import { searchQuestionBankPoints, type QuestionBankAccess } from "./qdrant_client.js";
 
 export async function createDocument(input: {
@@ -32,17 +33,30 @@ export async function getDocumentsByIds(ids: string[]) {
     return db.select().from(questionBankDocuments).where(inArray(questionBankDocuments.id, ids));
 }
 
+/** The caller's own documents — or, for an admin, everyone's, each with its uploader's email. */
 export async function listAccessibleDocuments(access: QuestionBankAccess) {
     return db
-        .select()
+        .select({
+            id: questionBankDocuments.id,
+            createdBy: questionBankDocuments.createdBy,
+            ownerEmail: users.email,
+            title: questionBankDocuments.title,
+            fileUrl: questionBankDocuments.fileUrl,
+            status: questionBankDocuments.status,
+            totalChunks: questionBankDocuments.totalChunks,
+            error: questionBankDocuments.error,
+            createdAt: questionBankDocuments.createdAt,
+            updatedAt: questionBankDocuments.updatedAt,
+        })
         .from(questionBankDocuments)
-        .where(eq(questionBankDocuments.createdBy, access.userId))
+        .leftJoin(users, eq(questionBankDocuments.createdBy, users.id))
+        .where(access.role === "admin" ? undefined : eq(questionBankDocuments.createdBy, access.userId))
         .orderBy(desc(questionBankDocuments.createdAt));
 }
 
-/** The single source of truth for "may this person use this document?". */
+/** The single source of truth for "may this person use this document?". Admins may use anyone's. */
 export function canAccessDocument(document: { createdBy: string }, access: QuestionBankAccess): boolean {
-    return document.createdBy === access.userId;
+    return document.createdBy === access.userId || access.role === "admin";
 }
 
 export async function markDocumentProcessing(id: string) {
@@ -88,8 +102,9 @@ export async function saveChunk(chunk: NewQuestionBankChunk) {
  * question text directly, since the description is the searchable gloss.
  */
 export async function embedText(text: string): Promise<number[]> {
-    const client = await getClientForModel(env.EMBEDDING_MODEL);
-    const response = await client.embeddings.create({ model: env.EMBEDDING_MODEL, input: text });
+    const model = getSetting("EMBEDDING_MODEL");
+    const client = await getClientForModel(model);
+    const response = await client.embeddings.create({ model, input: text });
     const embedding = response.data[0]?.embedding;
     if (!embedding) throw new Error("Embedding response contained no vector");
     return embedding;

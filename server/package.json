@@ -30,6 +30,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
+    "@clerk/express": "^2.1.69",
     "@paralleldrive/cuid2": "^3.3.0",
     "@qdrant/js-client-rest": "^1.19.0",
     "cloudinary": "^2.10.0",

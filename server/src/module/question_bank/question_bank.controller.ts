@@ -18,7 +18,7 @@ import { deleteQuestionBankPointsByDocument, type QuestionBankAccess } from "./q
 import { generateQuestionsFromDocuments } from "./question_bank_generator.js";
 import { QuestionTypeZodEnum, DifficultyZodEnum } from "../generation_agents/Types/inputExam.js";
 
-const accessOf = (req: Request): QuestionBankAccess => ({ userId: req.user!.id });
+const accessOf = (req: Request): QuestionBankAccess => ({ userId: req.user!.id, role: req.user!.role });
 
 function assertCanAccessDocument(document: { createdBy: string }, req: Request) {
     if (!canAccessDocument(document, accessOf(req))) {
@@ -28,8 +28,9 @@ function assertCanAccessDocument(document: { createdBy: string }, req: Request) 
     }
 }
 
+/** Rename/delete: the uploader, or an admin acting on their behalf. */
 function assertOwnsDocument(document: { createdBy: string }, req: Request) {
-    if (document.createdBy !== req.user!.id) {
+    if (document.createdBy !== req.user!.id && req.user!.role !== "admin") {
         throw ApiError.forbidden("Not your document");
     }
 }

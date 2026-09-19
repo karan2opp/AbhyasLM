@@ -1,0 +1,30 @@
+# Local Postgres and Qdrant for development: `docker compose up -d` from this folder.
+# Ports are offset from the defaults so this can run alongside other projects' databases.
+# Qdrant is optional — point QDRANT_URL at Qdrant Cloud instead and skip that service.
+services:
+  postgres:
+    image: postgres:17
+    ports:
+      - "${POSTGRES_PORT:-5456}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-abhyaslm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-abhyaslm}
+      POSTGRES_DB: ${POSTGRES_DB:-abhyaslm_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-abhyaslm} -d ${POSTGRES_DB:-abhyaslm_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "${QDRANT_PORT:-6343}:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+volumes:
+  postgres_data:
+  qdrant_data:

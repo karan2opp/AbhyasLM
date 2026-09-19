@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X PUT localhost:8000/api/inngest -w \" [%{http_code}]\\\\n\")",
+      "Bash(curl -s \"localhost:8288/v0/gql\" -H \"Content-Type: application/json\" -d '{\"query\":\"{ apps { name url connected functionCount error } }\"}')",
+      "Bash(curl -s \"localhost:8288/v0/gql\" -H \"Content-Type: application/json\" -d '{\"query\":\"{ __schema { mutationType { fields { name args { name } } } } }\"}')",
+      "Bash(taskkill //PID 21492 //F //T)",
+      "Bash(grep -n \"Expected\\\\b\\\\|got \\\\${\" components/InngestCommHandler.js)"
+    ]
+  }
+}

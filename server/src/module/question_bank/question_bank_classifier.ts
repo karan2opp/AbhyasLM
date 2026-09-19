@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { getClientForModel } from "../../common/agent/openai.client.js";
-import { env } from "../../env.js";
+import { getSetting } from "../settings/settings.service.js";
 import type { QuestionBankRawChunk } from "./question_bank_chunker.js";
 import type { QuestionBankOption } from "./question_bank.schema.js";
 
@@ -150,7 +150,8 @@ function chunkArray<T>(items: T[], size: number): T[][] {
 export async function classifyQuestionBankChunks(chunks: QuestionBankRawChunk[]): Promise<ChunkClassification[]> {
     if (chunks.length === 0) return [];
 
-    const client = await getClientForModel(env.GENERATION_MODEL);
+    const model = getSetting("GENERATION_MODEL");
+    const client = await getClientForModel(model);
     const results: (ChunkClassification | undefined)[] = new Array(chunks.length);
 
     const indexed = chunks.map((chunk, index) => ({ chunk, index }));
@@ -165,7 +166,7 @@ export async function classifyQuestionBankChunks(chunks: QuestionBankRawChunk[])
         }));
 
         const response = await client.chat.completions.create({
-            model: env.GENERATION_MODEL,
+            model,
             messages: [
                 { role: "system", content: SYSTEM_PROMPT },
                 { role: "user", content: JSON.stringify({ questions: payload }) },
