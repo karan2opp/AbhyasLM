@@ -54,7 +54,6 @@ export const processQuestionBankDocumentFunction = inngest.createFunction(
             });
 
             const userOpenAiKey = await resolveUserOpenAiKey(document.createdBy);
-            await runWithUserOpenAiKey(userOpenAiKey, async () => {
 
             const { extracted, tmpDir: dir } = await step.run("download-and-extract", async () => {
                 const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "question-bank-"));
@@ -67,108 +66,116 @@ export const processQuestionBankDocumentFunction = inngest.createFunction(
             });
             tmpDir = dir;
 
-            const classifiedChunks = await step.run("chunk-and-classify", async () => {
-                // Document-level pass first: an end-of-paper answer key is
-                // invisible to the classifier, which only ever sees one
-                // question at a time.
-                const answerKey = parseAnswerKey(extracted);
-                if (answerKey.size > 0) {
-                    console.log(`[question-bank] found an answer key with ${answerKey.size} entr(ies) for document ${documentId}`);
-                }
+            // The AsyncLocalStorage context set by runWithUserOpenAiKey doesn't
+            // survive across an Inngest step.run() boundary (each step can run
+            // in its own callback invocation), so it has to be re-established
+            // fresh inside every step whose callback makes an AI call —
+            // wrapping once around several steps only protects the first one.
+            const classifiedChunks = await step.run("chunk-and-classify", () =>
+                runWithUserOpenAiKey(userOpenAiKey, async () => {
+                    // Document-level pass first: an end-of-paper answer key is
+                    // invisible to the classifier, which only ever sees one
+                    // question at a time.
+                    const answerKey = parseAnswerKey(extracted);
+                    if (answerKey.size > 0) {
+                        console.log(`[question-bank] found an answer key with ${answerKey.size} entr(ies) for document ${documentId}`);
+                    }
 
-                // Strip it before classifying, so the last question doesn't
-                // carry the whole key as its own content.
-                const rawChunks: QuestionBankRawChunk[] = chunkQuestionBankDocument(extracted).map(stripAnswerKeyContent);
-                console.log(`[question-bank] detected ${rawChunks.length} question chunk(s) for document ${documentId}`);
+                    // Strip it before classifying, so the last question doesn't
+                    // carry the whole key as its own content.
+                    const rawChunks: QuestionBankRawChunk[] = chunkQuestionBankDocument(extracted).map(stripAnswerKeyContent);
+                    console.log(`[question-bank] detected ${rawChunks.length} question chunk(s) for document ${documentId}`);
 
-                const classifications: ChunkClassification[] = await classifyQuestionBankChunks(rawChunks);
+                    const classifications: ChunkClassification[] = await classifyQuestionBankChunks(rawChunks);
 
-                return rawChunks.map((chunk, i) => {
-                    const classification = classifications[i]!;
-                    // An answer printed inline with the question wins: it sits
-                    // right next to it and can't be mis-numbered. The key is
-                    // the fallback for everything else.
-                    const fromKey = chunk.questionNumber ? answerKey.get(String(parseInt(chunk.questionNumber, 10))) : undefined;
-                    return {
-                        chunk,
-                        classification: {
-                            ...classification,
-                            correctOption: classification.correctOption ?? fromKey ?? null,
-                        },
-                    };
-                });
-            });
+                    return rawChunks.map((chunk, i) => {
+                        const classification = classifications[i]!;
+                        // An answer printed inline with the question wins: it sits
+                        // right next to it and can't be mis-numbered. The key is
+                        // the fallback for everything else.
+                        const fromKey = chunk.questionNumber ? answerKey.get(String(parseInt(chunk.questionNumber, 10))) : undefined;
+                        return {
+                            chunk,
+                            classification: {
+                                ...classification,
+                                correctOption: classification.correctOption ?? fromKey ?? null,
+                            },
+                        };
+                    });
+                })
+            );
 
-            const totalChunks = await step.run("persist-chunks", async () => {
-                const limit = pLimit(PERSIST_CONCURRENCY);
+            const totalChunks = await step.run("persist-chunks", () =>
+                runWithUserOpenAiKey(userOpenAiKey, async () => {
+                    const limit = pLimit(PERSIST_CONCURRENCY);
 
-                await Promise.all(
-                    classifiedChunks.map(({ chunk, classification }) =>
-                        limit(async () => {
-                            const images: QuestionBankImage[] = await Promise.all(
-                                chunk.images.map(async (img) => {
-                                    const fileBuffer = await fs.readFile(img.path);
-                                    const uploaded = await uploadToCloudinary(fileBuffer, "question-bank/images");
-                                    return { url: uploaded.url, width: img.width, height: img.height, page: chunk.pageStart };
-                                })
-                            );
+                    await Promise.all(
+                        classifiedChunks.map(({ chunk, classification }) =>
+                            limit(async () => {
+                                const images: QuestionBankImage[] = await Promise.all(
+                                    chunk.images.map(async (img) => {
+                                        const fileBuffer = await fs.readFile(img.path);
+                                        const uploaded = await uploadToCloudinary(fileBuffer, "question-bank/images");
+                                        return { url: uploaded.url, width: img.width, height: img.height, page: chunk.pageStart };
+                                    })
+                                );
 
-                            const tables: QuestionBankTable[] = chunk.tables.map((t) => ({
-                                page: chunk.pageStart,
-                                header: t.header,
-                                rows: t.rows,
-                            }));
-                            const lists: QuestionBankList[] = [];
+                                const tables: QuestionBankTable[] = chunk.tables.map((t) => ({
+                                    page: chunk.pageStart,
+                                    header: t.header,
+                                    rows: t.rows,
+                                }));
+                                const lists: QuestionBankList[] = [];
 
-                            const vector = await embedText(classification.description || classification.cleanedText.slice(0, 500));
+                                const vector = await embedText(classification.description || classification.cleanedText.slice(0, 500));
 
-                            const saved = await saveChunk({
-                                documentId,
-                                questionNumber: chunk.questionNumber,
-                                rawText: classification.cleanedText,
-                                questionText: classification.questionText,
-                                options: classification.options,
-                                correctOption: classification.correctOption,
-                                subject: classification.subject,
-                                topics: classification.topics,
-                                description: classification.description,
-                                pageStart: chunk.pageStart,
-                                pageEnd: chunk.pageEnd,
-                                images,
-                                tables,
-                                lists,
-                            });
+                                const saved = await saveChunk({
+                                    documentId,
+                                    questionNumber: chunk.questionNumber,
+                                    rawText: classification.cleanedText,
+                                    questionText: classification.questionText,
+                                    options: classification.options,
+                                    correctOption: classification.correctOption,
+                                    subject: classification.subject,
+                                    topics: classification.topics,
+                                    description: classification.description,
+                                    pageStart: chunk.pageStart,
+                                    pageEnd: chunk.pageEnd,
+                                    images,
+                                    tables,
+                                    lists,
+                                });
 
-                            await upsertQuestionBankPoints([
-                                {
-                                    id: saved.id,
-                                    vector,
-                                    payload: {
-                                        documentId,
-                                        createdBy: document.createdBy,
-                                        subject: classification.subject,
-                                        topics: classification.topics,
-                                        questionNumber: chunk.questionNumber,
-                                        // Parsed options are what make it a
-                                        // multiple-choice question; without
-                                        // them it's a written answer.
-                                        questionType: classification.options.length > 0 ? "mcq" : "descriptive",
-                                        hasImages: images.length > 0,
-                                        hasTables: tables.length > 0,
+                                await upsertQuestionBankPoints([
+                                    {
+                                        id: saved.id,
+                                        vector,
+                                        payload: {
+                                            documentId,
+                                            createdBy: document.createdBy,
+                                            subject: classification.subject,
+                                            topics: classification.topics,
+                                            questionNumber: chunk.questionNumber,
+                                            // Parsed options are what make it a
+                                            // multiple-choice question; without
+                                            // them it's a written answer.
+                                            questionType: classification.options.length > 0 ? "mcq" : "descriptive",
+                                            hasImages: images.length > 0,
+                                            hasTables: tables.length > 0,
+                                        },
                                     },
-                                },
-                            ]);
-                        })
-                    )
-                );
+                                ]);
+                            })
+                        )
+                    );
 
-                return classifiedChunks.length;
-            });
+                    return classifiedChunks.length;
+                })
+            );
 
             await step.run("finalize", async () => {
                 await markDocumentCompleted(documentId, totalChunks);
                 console.log(`[question-bank] document ${documentId} completed with ${totalChunks} chunk(s)`);
-            });
             });
         } catch (err: any) {
             await markDocumentFailed(documentId, err?.message || "Unknown error processing document");

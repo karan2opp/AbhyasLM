@@ -2,6 +2,10 @@ import { BookOpen, ClipboardCheck, Library, Sparkles, type LucideIcon } from "lu
 
 export interface Pipeline {
   slug: string
+  /** The agent's name — Sanskrit-rooted, same family as "Abhyas" itself. */
+  codename: string
+  /** What "codename" means, shown as a short gloss next to it. */
+  meaning: string
   label: string
   desc: string
   intro: string
@@ -14,6 +18,8 @@ export interface Pipeline {
 export const pipelines: Pipeline[] = [
   {
     slug: "ai-generation",
+    codename: "Srijan",
+    meaning: "creation",
     label: "AI Generation",
     desc: "Describe the exam and let AI plan, generate, and verify every question.",
     intro: "No source material needed — describe the exam you want, and the AI plans, writes, and checks every question from its own knowledge.",
@@ -24,6 +30,8 @@ export const pipelines: Pipeline[] = [
   },
   {
     slug: "past-papers",
+    codename: "Smriti",
+    meaning: "memory",
     label: "Past Papers",
     desc: "Upload previous papers once — matching questions are retrieved and reused instantly.",
     intro: "Upload your previous-year papers once. Every question is extracted, classified, and stored in a searchable bank you can pull from for any future exam.",
@@ -34,6 +42,8 @@ export const pipelines: Pipeline[] = [
   },
   {
     slug: "textbook",
+    codename: "Gyan",
+    meaning: "knowledge",
     label: "Textbook",
     desc: "Index a book once, and new questions are written straight from its content.",
     intro: "Upload a textbook once. Its chapters are indexed and matched to your topics, and new questions are generated grounded in that exact text.",
@@ -44,6 +54,8 @@ export const pipelines: Pipeline[] = [
   },
   {
     slug: "evaluation",
+    codename: "Nirnay",
+    meaning: "judgment",
     label: "Evaluation",
     desc: "MCQs auto-marked instantly; written answers AI-graded and reviewable by you.",
     intro: "Once candidates submit, MCQs are marked instantly and written answers are AI-graded against a rubric — with every mark reviewable and overridable by you.",

@@ -12,10 +12,14 @@ import { users } from "./user.schema.js";
  */
 export async function resolveUserOpenAiKey(userId: string): Promise<string | undefined> {
     const [user] = await db.select({ openaiApiKeyEncrypted: users.openaiApiKeyEncrypted }).from(users).where(eq(users.id, userId));
-    if (!user?.openaiApiKeyEncrypted) return undefined;
+    if (!user?.openaiApiKeyEncrypted) {
+        console.log(`[resolveUserOpenAiKey] user ${userId} has no stored key — falling back to the platform key`);
+        return undefined;
+    }
     try {
         return decrypt(user.openaiApiKeyEncrypted);
-    } catch {
+    } catch (err) {
+        console.error(`[resolveUserOpenAiKey] failed to decrypt stored key for user ${userId} — falling back to the platform key`, err);
         return undefined;
     }
 }

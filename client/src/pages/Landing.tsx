@@ -98,9 +98,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-heading leading-[1.1] tracking-tight mb-6 text-zinc-900">
-              Create. Conduct. Evaluate.
-              <br />
-              <span className="text-orange-600">Smarter Exams</span> with AI.
+              Create, Conduct, and Evaluate <span className="text-orange-600">Smarter Exams</span> with AI.
             </h1>
             <p className="text-lg text-zinc-600 mb-8 max-w-xl leading-relaxed">
               Everything you need to create, deliver, and evaluate exams — powered by AI. Save time, ensure quality, and focus on what matters most: learning.
@@ -181,7 +179,13 @@ export default function Landing() {
                       <div className="h-11 w-11 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
                         <Icon className="h-5 w-5 text-orange-600" />
                       </div>
-                      <h3 className="text-xl font-bold text-zinc-900">{p.label}</h3>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xl font-bold text-zinc-900">{p.codename}</h3>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 rounded-full px-2 py-0.5">{p.label}</span>
+                        </div>
+                        <p className="text-xs text-zinc-400 italic">{p.meaning}</p>
+                      </div>
                     </div>
                     <p className="text-base text-zinc-600 leading-relaxed">{p.intro}</p>
                   </div>

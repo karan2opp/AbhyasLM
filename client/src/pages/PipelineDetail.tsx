@@ -36,7 +36,13 @@ export default function PipelineDetail() {
           <div className="h-12 w-12 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
             <Icon className="h-6 w-6 text-orange-600" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold font-heading text-zinc-900">{pipeline.label}</h1>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-3xl md:text-4xl font-bold font-heading text-zinc-900">{pipeline.codename}</h1>
+              <span className="text-xs font-bold uppercase tracking-wider text-orange-600 bg-orange-50 rounded-full px-2.5 py-1">{pipeline.label}</span>
+            </div>
+            <p className="text-sm text-zinc-400 italic">{pipeline.meaning}</p>
+          </div>
         </div>
         <p className="text-lg text-zinc-600 max-w-2xl leading-relaxed mb-6">{pipeline.intro}</p>
 

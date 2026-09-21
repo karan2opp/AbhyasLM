@@ -39,26 +39,29 @@ export const gradeSubmissionFunction = inngest.createFunction(
         });
 
         const userOpenAiKey = await resolveUserOpenAiKey(ownerId);
-        await runWithUserOpenAiKey(userOpenAiKey, async () => {
 
+        // The AsyncLocalStorage context from runWithUserOpenAiKey doesn't
+        // survive across an Inngest step.run() boundary, so it's
+        // re-established fresh inside each grading step's own callback.
         for (const answer of answers) {
-            await step.run(`grade-${answer.answerId}`, async () => {
-                const outcome = await evaluateAnswer({
-                    question: answer.question,
-                    studentAnswer: answer.textAnswer ?? "",
-                    maxMarks: answer.marks,
-                    contentBlocks: answer.contentBlocks,
-                    rubric: answer.rubric,
-                });
-                await recordAnswerMark(answer.answerId, { marksAwarded: outcome.marksAwarded, feedback: outcome.feedback, markedBy: "ai" });
-                return { answerId: answer.answerId, marksAwarded: outcome.marksAwarded };
-            });
+            await step.run(`grade-${answer.answerId}`, () =>
+                runWithUserOpenAiKey(userOpenAiKey, async () => {
+                    const outcome = await evaluateAnswer({
+                        question: answer.question,
+                        studentAnswer: answer.textAnswer ?? "",
+                        maxMarks: answer.marks,
+                        contentBlocks: answer.contentBlocks,
+                        rubric: answer.rubric,
+                    });
+                    await recordAnswerMark(answer.answerId, { marksAwarded: outcome.marksAwarded, feedback: outcome.feedback, markedBy: "ai" });
+                    return { answerId: answer.answerId, marksAwarded: outcome.marksAwarded };
+                })
+            );
         }
 
         await step.run("finalize", async () => {
             const updated = await recalculateScore(submissionId, { status: "submitted", evaluationError: null });
             console.log(`[exams] graded submission ${submissionId}: ${updated.score} mark(s) across ${answers.length} written answer(s)`);
-        });
         });
     },
 );

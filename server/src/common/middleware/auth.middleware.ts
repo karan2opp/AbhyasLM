@@ -70,9 +70,10 @@ export const requireAuth = async (req: Request, _res: Response, next: NextFuncti
         if (user.openaiApiKeyEncrypted) {
             try {
                 userOpenAiKey = decrypt(user.openaiApiKeyEncrypted);
-            } catch {
+            } catch (err) {
                 // ENCRYPTION_KEY rotated or data corrupted — fall back to the
                 // platform key rather than failing the whole request.
+                console.error(`[requireAuth] failed to decrypt stored OpenAI key for user ${user.id} — falling back to the platform key`, err);
             }
         }
         runWithUserOpenAiKey(userOpenAiKey, next);

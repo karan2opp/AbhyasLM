@@ -36,7 +36,6 @@ export const indexBookFunction = inngest.createFunction(
                 return b;
             });
             const userOpenAiKey = await resolveUserOpenAiKey(book.createdBy);
-            await runWithUserOpenAiKey(userOpenAiKey, async () => {
 
             const plan = await step.run("extract-blocks", async () => {
                 try {
@@ -47,18 +46,20 @@ export const indexBookFunction = inngest.createFunction(
                 }
             });
 
+            // The AsyncLocalStorage context from runWithUserOpenAiKey doesn't
+            // survive across an Inngest step.run() boundary, so it's
+            // re-established fresh inside this step's own callback.
             const results: WindowResult[] = [];
             for (let i = 0; i < plan.windows.length; i += WINDOW_WAVE_SIZE) {
                 const wave = plan.windows.slice(i, i + WINDOW_WAVE_SIZE);
                 const waveResults = await Promise.all(
-                    wave.map((window) => step.run(`index-window-${window.index}`, () => indexBookWindow(bookId, window)))
+                    wave.map((window) => step.run(`index-window-${window.index}`, () => runWithUserOpenAiKey(userOpenAiKey, () => indexBookWindow(bookId, window))))
                 );
                 results.push(...(waveResults as WindowResult[]));
             }
 
             await step.run("merge-and-save", async () => {
                 await mergeAndSaveIndex(bookId, results);
-            });
             });
         } catch (err: any) {
             await markBookFailed(bookId, err?.message || "Unknown error indexing book");

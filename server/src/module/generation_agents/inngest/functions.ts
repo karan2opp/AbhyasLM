@@ -67,12 +67,15 @@ export const generateBlueprintFunction = inngest.createFunction(
             });
 
             const userOpenAiKey = await resolveUserOpenAiKey(session.createdBy);
-            await runWithUserOpenAiKey(userOpenAiKey, async () => {
 
             const examInput = session.examInput;
             const summary = session.summary!;
             const sectionResults: { name: string; subject: string; questionCount: number; topics: TopicWithSubtopics[]; unmatchedTopics?: string[] }[] = [];
 
+            // The AsyncLocalStorage context from runWithUserOpenAiKey doesn't
+            // survive across an Inngest step.run() boundary, so it's
+            // re-established fresh inside every step whose callback makes an
+            // AI call, rather than once around all of them.
             for (const section of examInput.sections) {
                 const sectionTopicNames = section.topics.map(topicName);
                 const topicInstructions = summary.topicSpecificInstructions.filter((t) =>
@@ -82,19 +85,21 @@ export const generateBlueprintFunction = inngest.createFunction(
                 // From-source exams: subtopics are the book's own subsections, chosen per topic.
                 if (examInput.bookId) {
                     const bookId = examInput.bookId;
-                    const bookResult = await step.run(`book-subtopics-section-${section.name}`, async () => {
-                        const planned = await generateBookSectionSubtopics(section, bookId, {
-                            globalInstructions: summary.globalInstructions,
-                            topicInstructions,
-                            difficulty: examInput.difficulty,
-                            educationLevel: examInput.educationLevel,
-                        });
-                        if (planned.topics.length === 0) {
-                            throw new Error(`None of the topics in "${section.name}" were found in the selected book (${planned.unmatchedTopics.join(", ")}).`);
-                        }
-                        console.log(`[generation-agent-generate-blueprint] section "${section.name}": ${planned.topics.length} topic(s) matched in the book, ${planned.unmatchedTopics.length} not found`);
-                        return planned;
-                    });
+                    const bookResult = await step.run(`book-subtopics-section-${section.name}`, () =>
+                        runWithUserOpenAiKey(userOpenAiKey, async () => {
+                            const planned = await generateBookSectionSubtopics(section, bookId, {
+                                globalInstructions: summary.globalInstructions,
+                                topicInstructions,
+                                difficulty: examInput.difficulty,
+                                educationLevel: examInput.educationLevel,
+                            });
+                            if (planned.topics.length === 0) {
+                                throw new Error(`None of the topics in "${section.name}" were found in the selected book (${planned.unmatchedTopics.join(", ")}).`);
+                            }
+                            console.log(`[generation-agent-generate-blueprint] section "${section.name}": ${planned.topics.length} topic(s) matched in the book, ${planned.unmatchedTopics.length} not found`);
+                            return planned;
+                        })
+                    );
                     sectionResults.push({
                         name: section.name,
                         subject: section.subject,
@@ -105,15 +110,17 @@ export const generateBlueprintFunction = inngest.createFunction(
                     continue;
                 }
 
-                const result = await step.run(`subtopics-section-${section.name}`, async () => {
-                    console.log(`[generation-agent-generate-blueprint] generating subtopics for section "${section.name}" (${sectionTopicNames.length} topic(s))`);
-                    return generateSectionSubtopics(section, {
-                        globalInstructions: summary.globalInstructions,
-                        topicInstructions,
-                        difficulty: examInput.difficulty,
-                        educationLevel: examInput.educationLevel,
-                    });
-                });
+                const result = await step.run(`subtopics-section-${section.name}`, () =>
+                    runWithUserOpenAiKey(userOpenAiKey, async () => {
+                        console.log(`[generation-agent-generate-blueprint] generating subtopics for section "${section.name}" (${sectionTopicNames.length} topic(s))`);
+                        return generateSectionSubtopics(section, {
+                            globalInstructions: summary.globalInstructions,
+                            topicInstructions,
+                            difficulty: examInput.difficulty,
+                            educationLevel: examInput.educationLevel,
+                        });
+                    })
+                );
 
                 sectionResults.push({
                     name: section.name,
@@ -133,7 +140,6 @@ export const generateBlueprintFunction = inngest.createFunction(
 
                 await saveBlueprint(sessionId, { sections: allocatedSections });
                 console.log(`[generation-agent-generate-blueprint] allocated questions and saved blueprint for session ${sessionId}`);
-            });
             });
         } catch (err: any) {
             await markBlueprintFailed(sessionId, err?.message || "Unknown error generating blueprint");
@@ -186,7 +192,6 @@ export const generateQuestionsFunction = inngest.createFunction(
             });
 
             const userOpenAiKey = await resolveUserOpenAiKey(session.createdBy);
-            await runWithUserOpenAiKey(userOpenAiKey, async () => {
 
             const examInput = session.examInput;
             const summary = session.summary!;
@@ -201,47 +206,49 @@ export const generateQuestionsFunction = inngest.createFunction(
                 for (const group of chunk(section.topics, TOPIC_CONCURRENCY)) {
                     const results = await Promise.all(
                         group.map((topic) =>
-                            step.run(`generate-topic-${sanitizeStepId(section.name)}-${sanitizeStepId(topic.topic)}`, async () => {
-                                const topicInstructions = summary.topicSpecificInstructions
-                                    .filter((t) => t.topic === topic.topic)
-                                    .flatMap((t) => t.instructions);
+                            step.run(`generate-topic-${sanitizeStepId(section.name)}-${sanitizeStepId(topic.topic)}`, () =>
+                                runWithUserOpenAiKey(userOpenAiKey, async () => {
+                                    const topicInstructions = summary.topicSpecificInstructions
+                                        .filter((t) => t.topic === topic.topic)
+                                        .flatMap((t) => t.instructions);
 
-                                const activeSubtopics = topic.subtopics.filter((s) => s.allocatedQuestions > 0);
+                                    const activeSubtopics = topic.subtopics.filter((s) => s.allocatedQuestions > 0);
 
-                                let sourceMaterial: { subtopic: string; text: string }[] | undefined;
-                                if (examInput.bookId) {
-                                    // Subtopics added while reviewing the plan have no book source yet; match them now.
-                                    const missing = activeSubtopics.filter((s) => !s.sourceNodeIds?.length).map((s) => s.name);
-                                    const matched = await matchSubtopicsToBook(examInput.bookId, topic.topic, missing);
-                                    sourceMaterial = await loadSourceMaterial(
-                                        activeSubtopics.map((s) => ({
-                                            name: s.name,
-                                            sourceNodeIds: s.sourceNodeIds?.length ? s.sourceNodeIds : matched.get(s.name) ?? [],
-                                        }))
-                                    );
-                                }
+                                    let sourceMaterial: { subtopic: string; text: string }[] | undefined;
+                                    if (examInput.bookId) {
+                                        // Subtopics added while reviewing the plan have no book source yet; match them now.
+                                        const missing = activeSubtopics.filter((s) => !s.sourceNodeIds?.length).map((s) => s.name);
+                                        const matched = await matchSubtopicsToBook(examInput.bookId, topic.topic, missing);
+                                        sourceMaterial = await loadSourceMaterial(
+                                            activeSubtopics.map((s) => ({
+                                                name: s.name,
+                                                sourceNodeIds: s.sourceNodeIds?.length ? s.sourceNodeIds : matched.get(s.name) ?? [],
+                                            }))
+                                        );
+                                    }
 
-                                const generationInput: GenerateTopicQuestionsInput = {
-                                    subject: sectionInput.subject,
-                                    question_type: sectionInput.question_type,
-                                    marks: sectionInput.marks,
-                                    difficulty: examInput.difficulty,
-                                    educationLevel: examInput.educationLevel,
-                                    topic: topic.topic,
-                                    subtopics: activeSubtopics.map((s) => ({ name: s.name, count: s.allocatedQuestions })),
-                                    globalInstructions: summary.globalInstructions,
-                                    topicInstructions,
-                                    sourceMaterial,
-                                };
-                                const output = await generateTopicQuestions(generationInput);
-                                const verified = await verifyAndRepairTopicQuestions(generationInput, output.questions);
+                                    const generationInput: GenerateTopicQuestionsInput = {
+                                        subject: sectionInput.subject,
+                                        question_type: sectionInput.question_type,
+                                        marks: sectionInput.marks,
+                                        difficulty: examInput.difficulty,
+                                        educationLevel: examInput.educationLevel,
+                                        topic: topic.topic,
+                                        subtopics: activeSubtopics.map((s) => ({ name: s.name, count: s.allocatedQuestions })),
+                                        globalInstructions: summary.globalInstructions,
+                                        topicInstructions,
+                                        sourceMaterial,
+                                    };
+                                    const output = await generateTopicQuestions(generationInput);
+                                    const verified = await verifyAndRepairTopicQuestions(generationInput, output.questions);
 
-                                const generatedTopic: GeneratedTopicQuestions = {
-                                    topic: topic.topic,
-                                    questions: verified.map((q) => ({ ...q, id: createId(), marks: sectionInput.marks })),
-                                };
-                                return generatedTopic;
-                            })
+                                    const generatedTopic: GeneratedTopicQuestions = {
+                                        topic: topic.topic,
+                                        questions: verified.map((q) => ({ ...q, id: createId(), marks: sectionInput.marks })),
+                                    };
+                                    return generatedTopic;
+                                })
+                            )
                         )
                     );
                     generatedTopics.push(...results);
@@ -258,7 +265,6 @@ export const generateQuestionsFunction = inngest.createFunction(
             await step.run("finalize-questions", async () => {
                 await markQuestionsCompleted(sessionId);
                 console.log(`[generation-agent-generate-questions] all sections generated for session ${sessionId}`);
-            });
             });
         } catch (err: any) {
             await markQuestionsFailed(sessionId, err?.message || "Unknown error generating questions");
